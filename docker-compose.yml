@@ -183,7 +183,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:4000/api
+      - NEXT_PUBLIC_API_URL=http://72.61.117.161:4000/api
     depends_on:
       - gateway
     networks:

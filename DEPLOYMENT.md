@@ -20,7 +20,7 @@ This guide covers deploying the Bus Tracker application on a VPS (Virtual Privat
 ### 1.1 Connect to your VPS
 
 ```bash
-ssh root@your-server-ip
+ssh root@72.61.117.161
 ```
 
 ### 1.2 Update system packages
@@ -88,7 +88,7 @@ Or upload your project files via SCP:
 
 ```bash
 # From your local machine
-scp -r ./Bus bustracker@your-server-ip:~/bus-tracker
+scp -r ./Bus bustracker@72.61.117.161:~/bus-tracker
 ```
 
 ### 3.2 Create environment file
@@ -224,7 +224,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://your-domain.com:4000
+      - NEXT_PUBLIC_API_URL=http://72.61.117.161:4000
     depends_on:
       - gateway
     restart: always
@@ -293,11 +293,11 @@ sudo nano /etc/nginx/sites-available/bustracker
 Add the following configuration:
 
 ```nginx
-# Frontend
 server {
     listen 80;
-    server_name your-domain.com www.your-domain.com;
+    server_name 72.61.117.161;
 
+    # Frontend
     location / {
         proxy_pass http://localhost:8000;
         proxy_http_version 1.1;
@@ -309,15 +309,10 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
-}
 
-# API Gateway
-server {
-    listen 80;
-    server_name api.your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:4000;
+    # API Gateway
+    location /api {
+        proxy_pass http://localhost:4000/api;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -340,28 +335,39 @@ sudo systemctl restart nginx
 
 ---
 
-## Step 6: Setup SSL with Let's Encrypt (Recommended)
+## Step 6: Setup SSL (Optional)
 
-### 6.1 Install Certbot
+> **Note:** Let's Encrypt requires a domain name for SSL certificates. If you only have an IP address (72.61.117.161), you can either:
+> 1. Purchase a domain and point it to your IP
+> 2. Use a self-signed certificate (not recommended for production)
+> 3. Skip SSL for internal/testing use
+
+### 6.1 With a Domain Name
+
+If you have a domain (e.g., `bustracker.example.com`):
 
 ```bash
+# Install Certbot
 sudo apt install -y certbot python3-certbot-nginx
-```
 
-### 6.2 Obtain SSL certificates
+# Obtain SSL certificate
+sudo certbot --nginx -d bustracker.example.com
 
-```bash
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com -d api.your-domain.com
-```
-
-### 6.3 Auto-renewal
-
-```bash
-# Test renewal
+# Test auto-renewal
 sudo certbot renew --dry-run
-
-# Certbot automatically adds a cron job for renewal
 ```
+
+### 6.2 Self-Signed Certificate (for testing only)
+
+```bash
+# Generate self-signed certificate
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/bustracker.key \
+  -out /etc/ssl/certs/bustracker.crt \
+  -subj "/CN=72.61.117.161"
+```
+
+Then update Nginx to use HTTPS (optional for IP-only setup).
 
 ---
 
