@@ -1,0 +1,13 @@
+{
+  "name": "analytics-service",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.js",
+    "start": "bun run src/index.js"
+  },
+  "dependencies": {
+    "hono": "^4.3.0",
+    "mongoose": "^8.3.0"
+  }
+}

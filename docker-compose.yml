@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  # ===================
+  # Infrastructure
+  # ===================
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # MongoDB instances for each service
+  auth-mongo:
+    image: mongo:7
+    container_name: auth-mongo
+    volumes:
+      - auth_mongo_data:/data/db
+    networks:
+      - backend
+
+  bus-mongo:
+    image: mongo:7
+    container_name: bus-mongo
+    volumes:
+      - bus_mongo_data:/data/db
+    networks:
+      - backend
+
+  tracking-mongo:
+    image: mongo:7
+    container_name: tracking-mongo
+    volumes:
+      - tracking_mongo_data:/data/db
+    networks:
+      - backend
+
+  analytics-mongo:
+    image: mongo:7
+    container_name: analytics-mongo
+    volumes:
+      - analytics_mongo_data:/data/db
+    networks:
+      - backend
+
+  # ===================
+  # Backend Services
+  # ===================
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "4001:4001"
+    environment:
+      - AUTH_MONGO_URI=mongodb://auth-mongo:27017/auth_db
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ADMIN_NAME=${ADMIN_NAME:-System Administrator}
+      - DEFAULT_STUDENT_PASSWORD=${DEFAULT_STUDENT_PASSWORD:-baiustbus123#}
+    depends_on:
+      - auth-mongo
+    networks:
+      - backend
+    restart: unless-stopped
+
+  bus-service:
+    build:
+      context: ./services/bus-service
+      dockerfile: Dockerfile
+    container_name: bus-service
+    ports:
+      - "4002:4002"
+    environment:
+      - BUS_MONGO_URI=mongodb://bus-mongo:27017/bus_db
+    depends_on:
+      - bus-mongo
+    networks:
+      - backend
+    restart: unless-stopped
+
+  tracking-service:
+    build:
+      context: ./services/tracking-service
+      dockerfile: Dockerfile
+    container_name: tracking-service
+    ports:
+      - "4003:4003"
+    environment:
+      - TRACKING_MONGO_URI=mongodb://tracking-mongo:27017/tracking_db
+      - BUS_SERVICE_URL=http://bus-service:4002
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - GPS_API_URL=${GPS_API_URL:-http://172.104.160.132/proxy/devices}
+    depends_on:
+      - tracking-mongo
+      - bus-service
+      - rabbitmq
+    networks:
+      - backend
+    restart: unless-stopped
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: analytics-service
+    ports:
+      - "4004:4004"
+    environment:
+      - ANALYTICS_MONGO_URI=mongodb://analytics-mongo:27017/analytics_db
+    depends_on:
+      - analytics-mongo
+    networks:
+      - backend
+    restart: unless-stopped
+
+  analytics-worker:
+    build:
+      context: ./workers/analytics-worker
+      dockerfile: Dockerfile
+    container_name: analytics-worker
+    environment:
+      - ANALYTICS_MONGO_URI=mongodb://analytics-mongo:27017/analytics_db
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    depends_on:
+      - analytics-mongo
+      - rabbitmq
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ===================
+  # API Gateway
+  # ===================
+
+  gateway:
+    build:
+      context: ./apps/gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "4000:4000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:4001
+      - BUS_SERVICE_URL=http://bus-service:4002
+      - TRACKING_SERVICE_URL=http://tracking-service:4003
+      - ANALYTICS_SERVICE_URL=http://analytics-service:4004
+    depends_on:
+      - auth-service
+      - bus-service
+      - tracking-service
+      - analytics-service
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # ===================
+  # Frontend
+  # ===================
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000/api
+    depends_on:
+      - gateway
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  auth_mongo_data:
+  bus_mongo_data:
+  tracking_mongo_data:
+  analytics_mongo_data:
