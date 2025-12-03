@@ -222,7 +222,7 @@ services:
   web:
     build: ./apps/web
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
       - NEXT_PUBLIC_API_URL=http://your-domain.com:4000
     depends_on:
@@ -299,7 +299,7 @@ server {
     server_name your-domain.com www.your-domain.com;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:8000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -510,7 +510,7 @@ docker exec -it $(docker ps -qf "name=auth-mongo") mongosh --eval "db.adminComma
      ┌─────────────┐              ┌─────────────┐
      │  Frontend   │              │   Gateway   │
      │  (Next.js)  │              │   (Hono)    │
-     │   :3000     │              │   :4000     │
+     │   :8000     │              │   :4000     │
      └─────────────┘              └──────┬──────┘
                                          │
          ┌───────────┬───────────┬───────┴───────┐

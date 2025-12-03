@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volumes data (if mounted locally)
+data/
+
+# Test coverage
+coverage/
+
+# Misc
+*.pem
